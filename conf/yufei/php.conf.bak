@@ -1,0 +1,49 @@
+# -----------------------------------------------
+# Shenzhen QyCloud Technology Co., Ltd.
+# Copyright @ 2013 Oatos.com all right reserved.
+# 
+# Name: oatos.conf
+# Update: 2013/10/22
+# -----------------------------------------------
+
+server {
+
+       	listen          80;
+	      listen		443 ssl;
+	      # 监听80,443
+
+        # 指定SSL证书
+       	ssl_certificate         ../certs/server.crt;
+       	ssl_certificate_key     ../certs/server_nopass.key;
+	
+
+       	server_name     test.oatos.com; # 主机名
+       	root            D:/workspace/php-work/php_demo/;
+       	index           index.php login.html index.html index.htm; # 主目录及默认文档页
+
+       	access_log      logs/oatos_access.log combined;
+       	error_log       logs/oatos_error.log; # 访问日志
+
+        location ~ \.php$  { 
+            fastcgi_pass localhost:9000;
+            fastcgi_index index.php;
+
+            #required if PHP was built with --enable-force-cgi-redirect
+            fastcgi_param REDIRECT_STATUS 200;
+
+            #variables to make the $_SERVER populate in PHP
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            fastcgi_param QUERY_STRING $query_string;
+            fastcgi_param REQUEST_METHOD $request_method;
+            fastcgi_param CONTENT_TYPE $content_type;
+            fastcgi_param CONTENT_LENGTH $content_length;
+
+            fastcgi_param SCRIPT_NAME $fastcgi_script_name;
+
+            fastcgi_param GATEWAY_INTERFACE CGI/1.1;
+            fastcgi_param SERVER_SOFTWARE nginx/$nginx_version;
+
+            fastcgi_param REMOTE_ADDR $remote_addr;
+        }
+
+ }

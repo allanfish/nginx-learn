@@ -1,0 +1,157 @@
+# -----------------------------------------------
+# Shenzhen QyCloud Technology Co., Ltd.
+# Copyright @ 2013 Oatos.com all right reserved.
+# 
+# Name: oatos.conf
+# Update: 2013/10/22
+# -----------------------------------------------
+
+upstream fdfs_group1{
+    server 192.168.1.165 weight=1 max_fails=2 fail_timeout=30s;
+    #server 192.168.1.166 weight=1 max_fails=2 fail_timeout=30s;
+}
+
+upstream fdfs_group2{
+    server 192.168.1.167 weight=1 max_fails=2 fail_timeout=30s;
+}
+
+server {
+
+    listen    80 default;
+    listen		443 ssl ;
+    server_name  localhost;
+    resolver 8.8.8.8;
+
+    # 指定SSL证书
+    ssl_certificate         ../certs/server.crt;
+    ssl_certificate_key     ../certs/server_nopass.key;
+
+
+    server_name     localhost; # 主机名
+    root D:/_WORKSPACE/web_trunk/web/;
+    index           login.html index.html index.htm; # 主目录及默认文档页
+
+    access_log      logs/oatos_access.log combined;
+    error_log       logs/oatos_error.log; # 访问日志
+
+    set $NODE_SERVICE 127.0.0.1:3000;
+    set $SOCKET_SERVICE  127.0.0.1:3100;
+    set $APP_SERVICE 192.168.1.54;
+    set $FM_SERVER 192.168.1.54;
+
+    #  32 env
+    # set $APP_SERVICE 192.168.1.35;
+    # set $FM_SERVER 192.168.1.31:8080;
+
+    #set $APP_SERVICE 183.61.244.215:8080;
+    #set $FM_SERVER 183.61.244.215:8080;
+
+    location = / {
+        if ( $host = "s.oatos.com" ) {
+            rewrite ^[/]?$  http://www.oatos.com permanent;
+        }
+        if ( $host = "localhost" ) {
+            rewrite ^/$ /os/login.html permanent;
+        }
+    }
+
+    location ~ "^/\w{1,}$" {
+        if ( $host = "s.oatos.com" ) {
+            rewrite ^/(\w*)$ http://localhost/os/share.html?lc=$1 permanent;
+        }
+    }
+
+    location ~ /os/(login|register).html {
+        if ( $scheme = "http" ) {
+            rewrite ^/os/(.*)\.html https://$host/os/$1.html permanent;
+        }
+    }
+
+    location ~  ^/os/share.html {
+        if ( $http_user_agent ~* '(iphone|android|UCBrower|UCWEB)') {
+            rewrite ^/os/share.html?(.)*$ /m/mobile_share.html?$1 permanent;
+        }
+        if ( $http_user_agent ~* '(ipad)') {
+            rewrite ^/os/share.html?(.)*$ /m/ipad_share.html?$1 permanent;
+        }
+    }
+
+    location ~  /os/(home|fileviewer|newfile)\.html {
+        if ( $scheme = "https" ) {
+            rewrite ^/os/(.*)\.html http://$host/os/$1.html last;
+        }
+    }
+
+    location ~ /onlinedisk/group1/(.*) {
+        if ( $arg_down = '1' ){
+            add_header Content-Disposition "attachment;filename=$arg_fn;filename*=utf-8''$arg_fn";
+        }
+        proxy_pass http://fdfs_group1/group1/$1?ut=$arg_ut;
+    }
+
+    location ~ /onlinedisk/group2/(.*) {
+        if ( $arg_down = '1' ){
+            add_header Content-Disposition "attachment;filename=$arg_fn;filename*=utf-8''$arg_fn";
+        }
+        proxy_pass http://fdfs_group2/group2/$1?ut=$arg_ut;
+    }
+
+    location ~ /res/group1/(.*) {
+        proxy_pass http://fdfs_group1/group1/$1?ut=$arg_ut;
+    }
+
+    location ~ /res/group2/(.*) {
+        proxy_pass http://fdfs_group2/group2/$1?ut=$arg_ut;
+    }
+
+    location ~ /os/onlinedisk/(.*) {
+        proxy_pass http://$FM_SERVER/filemanager/oatos/onlinedisk/$1?$query_string;
+    }
+
+    location /socket.io/ {
+        proxy_pass              http://$SOCKET_SERVICE$request_uri;
+        proxy_redirect          off;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_http_version    1.1;
+        break;
+    }
+
+    location ~* ^/os/(flexService|api)$ {
+        proxy_pass      	http://$APP_SERVICE/server/oatos/$http_servicetype;
+    }
+
+
+    location ~ ^/os/(flexService|api)/(.*) {
+        proxy_pass             http://$APP_SERVICE/server/oatos/$2?$query_string;
+    }
+
+    location ~* /os/fm$ {
+        proxy_pass         http://$FM_SERVER/filemanager/oatos/$http_servicetype;
+    }
+
+    location ~ /os/fm/(.*) {
+        proxy_pass             http://$FM_SERVER/filemanager/oatos/$1?$query_string;
+    }
+
+    location ~ /os/(node|webService)$ {
+        proxy_pass http://NODE_SERVICE$http_servicetype;
+    }
+
+    location ~ /os/(node|webService)/(.*) {
+        proxy_pass http://NODE_SERVICE/$2?$query_string;
+    }
+
+    location ~ .*\.(gif|jpeg|jpg|png|html|css|js|ico|tpl|txt|swf|eot|svg|ttf|woff|otf)$ {
+        expires 30d;
+    }
+
+    location ~ /os/(.*) {
+        proxy_pass http://NODE_SERVICE/$1?$query_string;
+    }
+
+    location ~ ^/temp/(.*)$ {
+        root D:/_SOFTWARE/nginx-1.4.2/html/;
+    }
+}
